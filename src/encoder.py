@@ -7,5 +7,6 @@ class VAE_Encoder(nn.Sequential):
 
     def __init__(self):
         super.__init__(
-            nn.Conv2d(3, 128, kernel_size=3, padding=1)
+            nn.Conv2d(3, 128, kernel_size=3, padding=1),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
         )
