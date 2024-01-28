@@ -10,7 +10,7 @@ class VAE_AttentionBlock(nn.Module):
         self.groupnorm = nn.GroupNorm(32, channels)
         self.attention = SelfAttention(1, channels)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x = (batch_size, features, height, width)
 
         residue = x
@@ -21,7 +21,7 @@ class VAE_AttentionBlock(nn.Module):
         b, c, h, w = x.shape
 
         # (batch_size, features, height, width) -> (batch_size, features, height * width)
-        # For attention make the input 1D
+        # For attention make the input 1D, pixelwise self attention
         x = x.view((b, c, h * w))
 
         # Features must be the last dimension before feeding it to attention
@@ -30,6 +30,7 @@ class VAE_AttentionBlock(nn.Module):
 
         # Self attention without MASK
         # (batch_size, height*width, features) -> (batch_size, height*width, features)
+        # query, key and value are the same input hence self
         x = self.attention(x)
 
         # Transpose back to features being second dim
