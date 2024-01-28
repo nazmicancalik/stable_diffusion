@@ -46,3 +46,36 @@ class VAE_Encoder(nn.Sequential):
             # (b, 8, h/8, w/8) -> (b, 8, h/8, w/8)
             nn.Conv2d(8, 8, kernel_size=1, padding=0),
         )
+
+    def forward(self, x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+        # x = (batch_size, channel, height, width)
+        # noise = (batch_size, out_channels, height/8, width/8)
+
+        for module in self:
+            if getattr(module, "stride", None) == (2, 2):
+                # (padding_left, padding_right, padding_top, padding_bottom)
+                x = F.pad(x, (0, 1, 0, 1))
+            x = module(x)
+
+        # (b, 8, h/8, w/8 ) -> 2x (b, 4, h/8, w/8)
+        mean, log_variance = torch.chunk(x, 2, dim=1)
+
+        # If the log variance too big or small then clamp it to region
+        # (b, 4, h/8, w/8 ) -> 2x (b, 4, h/8, w/8)
+        log_variance = torch.clamp(log_variance, -30, 20)
+
+        # (b, 4, h/8, w/8 ) -> 2x (b, 4, h/8, w/8)
+        variance = log_variance.exp()
+
+        # (b, 4, h/8, w/8 ) -> 2x (b, 4, h/8, w/8)
+        stdev = variance.sqrt()
+
+        # Z=N(0,1) -> X = N(mean, variance) Z -> X transform of gaussians
+        # X = mean + stdev * Z
+        x = mean + stdev * noise
+
+        # Scale the output by a constant.
+        # This magic number is taken from orig paper.
+        x *= 0.18215
+
+        return x
