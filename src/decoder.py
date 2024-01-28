@@ -4,6 +4,49 @@ from torch.nn import functional as F
 from attention import SelfAttention
 
 
+class VAE_AttentionBlock(nn.Module):
+    def __init__(self, channels):
+        super.__init__()
+        self.groupnorm = nn.GroupNorm(32, channels)
+        self.attention = SelfAttention(1, channels)
+
+    def forward(self, x):
+        # x = (batch_size, features, height, width)
+
+        residue = x
+
+        # (batch_size, features, height, width) -> (batch_size, features, height, width)
+        x = self.groupnorm(x)
+
+        b, c, h, w = x.shape
+
+        # (batch_size, features, height, width) -> (batch_size, features, height * width)
+        # For attention make the input 1D
+        x = x.view((b, c, h * w))
+
+        # Features must be the last dimension before feeding it to attention
+        # (batch_size, features, height*width) -> (batch_size, height*width, features)
+        x = x.transpose(-1, -2)
+
+        # Self attention without MASK
+        # (batch_size, height*width, features) -> (batch_size, height*width, features)
+        x = self.attention(x)
+
+        # Transpose back to features being second dim
+        # (batch_size, features, height*width) -> (batch_size, features, height*width)
+        x = x.transpose(-1, -2)
+
+        # Go back to image look
+        # (batch_size, features, height*width) -> (batch_size, features, height, width)
+        x = x.view((b, c, h, w))
+
+        # Add residual connection
+        x += residue
+
+        # (batch_size, features, height, width)
+        return x
+
+
 class VAE_ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super.__init__()
