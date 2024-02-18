@@ -95,5 +95,36 @@ class VAE_Decoder(nn.Sequential):
             VAE_ResidualBlock(512, 512),
             # (bs, 512, height/8, width/8) -> (bs, 512, height/8, width/8)
             VAE_ResidualBlock(512, 512),
+            # (bs, 512, height/8, width/8) -> (bs, 512, height/4, width/4)
             nn.Upsample(scale_factor=2),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            # (bs, 512, height/4, width/4) -> (bs, 512, height/2, width/2)
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            VAE_ResidualBlock(512, 256),
+            VAE_ResidualBlock(256, 256),
+            VAE_ResidualBlock(256, 256),
+            # (bs, 256, height/2, width/2) -> (bs, 512, height, width)
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            VAE_ResidualBlock(256, 128),
+            VAE_ResidualBlock(128, 128),
+            VAE_ResidualBlock(128, 128),
+            nn.GroupNorm(32, 128),
+            nn.SiLU(),
+            # (bs, 128, height, width) -> (bs, 3, height, width)
+            nn.Conv2d(128, 3, kernel_size=3, padding=1),
         )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x : (bs, 4, height/8, width/8)
+        x /= 0.18215
+
+        for module in self:
+            x = module(x)
+
+        # (bs, 3, height, width)
+        return x
