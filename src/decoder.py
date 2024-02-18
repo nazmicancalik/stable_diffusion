@@ -30,11 +30,12 @@ class VAE_AttentionBlock(nn.Module):
 
         # Self attention without MASK
         # (batch_size, height*width, features) -> (batch_size, height*width, features)
-        # query, key and value are the same input hence self
+        # query, key and value are the same input hence self.
+        # Features are at the last dimension
         x = self.attention(x)
 
         # Transpose back to features being second dim
-        # (batch_size, features, height*width) -> (batch_size, features, height*width)
+        # (batch_size, height*width, features) -> (batch_size, features, height*width)
         x = x.transpose(-1, -2)
 
         # Go back to image look
@@ -79,3 +80,20 @@ class VAE_ResidualBlock(nn.Module):
         x = self.conv2(x)
 
         return x + self.residual_layer(residue)
+
+
+class VAE_Decoder(nn.Sequential):
+
+    def __init__(self):
+        super.__init__(
+            nn.Conv2d(4, 4, kernel_size=1, padding=0),
+            nn.Conv2d(4, 512, kernel_size=3, padding=1),
+            VAE_ResidualBlock(512, 512),
+            VAE_AttentionBlock(512),
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            # (bs, 512, height/8, width/8) -> (bs, 512, height/8, width/8)
+            VAE_ResidualBlock(512, 512),
+            nn.Upsample(scale_factor=2),
+        )
